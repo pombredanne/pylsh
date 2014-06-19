@@ -1,5 +1,6 @@
 ''' This module defines classes for generating LSH Signuture'''
 import mmh3
+import random
 
 class Signuture(object):
     ''' 
@@ -7,15 +8,21 @@ class Signuture(object):
     using either minhash (for boolean vector with Jaccard Similarity) 
     or random projection (continuous vector with cosine similarity)
     '''
-    def __init__(self, feat, sig_len, hasher):
+
+    def __init__(self, feat, sig_len, planes=None, hash_type='minhash'):
         self.feature = feat
         self.sig_len = sig_len
-        self.hasher = hasher
         self.signuture = []
+        self.planes = planes
+        self.hash_type = hash_type
+        random.seed(0)
 
     def gen_siganuture(self):
         ''' generate signuture for original feature vector'''
-        self._min_hash()
+        if self.hash_type == 'minhash':
+            self._min_hash()
+        else:
+            self._random_projection()
 
     def _min_hash(self):
         ''' Min hash for Jaccard Similarity'''
@@ -31,22 +38,38 @@ class Signuture(object):
 
     def _random_projection(self):
         ''' Random projection for cosine similarity'''
-        pass
+        if self.planes == None:
+            self._gen_random_planes()
+        self.signuture = [self._project(self.feature, self.planes[i]) \
+            for i in xrange(len(self.planes))]
 
-class Hasher(object):
-    ''' Hasher defines method to generate a family of hash function '''
-    def __init__(self, num):
-        import random
-        self.num = num
-        self.hashes = [random.getrandbits(32) for _ in xrange(num)]
+    @staticmethod
+    def _project(vector, plane):
+        ''' poject vector on plane, returns sign of projection '''
+        assert len(vector) == len(plane)
 
-    def hash(self, obj, i):
-        ''' 
-        Generate hash using ith hash function,
-        returns the hash value using ith hash functions
-        '''
-        assert i < self.num
-        return hash(obj) ^ self.hashes[i]
+        if Signuture._dot_product(vector, plane) >= 0:
+            return 1
+        return -1
+
+    @staticmethod
+    def _dot_product(vec1, vec2):
+        ''' compute dot product of two vectors'''
+        dot = 0.0
+        for x_val, y_val in zip(vec1, vec2):
+            dot += x_val * y_val
+        return dot
+
+    def _gen_random_planes(self):
+        ''' Generate and stores random planes'''
+        self.planes = [self._gen_random_plane(len(self.feature)) \
+            for _ in xrange(self.sig_len)]
+
+    @staticmethod
+    def _gen_random_plane(dim):
+        ''' generate random hyperplane with dimension dim'''
+        return [(random.random() - 0.5) * 2 for _ in xrange(dim)]
+
 
 class Banding:
     pass
