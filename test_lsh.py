@@ -1,9 +1,9 @@
 import lsh
 
-X = [0, 1, 0, 1, 0, 1]
-Y = [1, 0, 0, 1, 0, 1]
+X = [0, 1, 1, 0, 1, 1, 0]
+Y = [1, 0, 1, 0, 1, 0, 1]
 
-SIG_LEN = 5000
+SIG_LEN = 100
 
 def jaccard_similarity(x, y):
     ''' compute jaccard similarty betweeen x and y '''
@@ -32,8 +32,8 @@ def approximate_jaccard(x, y):
 
 if __name__ == '__main__':
     hasher = lsh.Hasher(SIG_LEN)
-    x_sig = lsh.Siganuture(X, SIG_LEN, hasher)
-    y_sig = lsh.Siganuture(Y, SIG_LEN, hasher)
+    x_sig = lsh.Signuture(X, SIG_LEN, hasher)
+    y_sig = lsh.Signuture(Y, SIG_LEN, hasher)
     x_sig.gen_siganuture()
     y_sig.gen_siganuture()
 

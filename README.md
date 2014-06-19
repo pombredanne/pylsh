@@ -1,4 +1,7 @@
-#A basic Locality Sensitve Hashing Library for python 
+###A basic Locality Sensitve Hashing Library for python 
+
+#####dependency
+mmh3
 
 #TODO:
 1. figure out data representation supported later, first support in-memory representation

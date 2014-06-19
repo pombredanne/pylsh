@@ -1,7 +1,9 @@
-''' This module defines classes for generating LSH Siganuture'''
-class Siganuture(object):
+''' This module defines classes for generating LSH Signuture'''
+import mmh3
+
+class Signuture(object):
     ''' 
-    Siganuture represents the siganuture of an original feature vector
+    Signuture represents the Signuture of an original feature vector
     using either minhash (for boolean vector with Jaccard Similarity) 
     or random projection (continuous vector with cosine similarity)
     '''
@@ -12,21 +14,19 @@ class Siganuture(object):
         self.signuture = []
 
     def gen_siganuture(self):
-        ''' generate siganuture for original feature vector'''
+        ''' generate signuture for original feature vector'''
         self._min_hash()
 
     def _min_hash(self):
         ''' Min hash for Jaccard Similarity'''
-        for i in xrange(self.sig_len):
-            self.signuture.append(self._gen_single_bit(i))
-
+        self.signuture = [self._gen_single_bit(i) for i in xrange(self.sig_len)]
 
     def _gen_single_bit(self, i):
         ''' 
         a helper function for minhash
         generate single bit of signuture using ith hasher
         '''
-        return min([self.hasher.hash(index, i) % self.sig_len \
+        return min([mmh3.hash(str(index), i) % self.sig_len \
             for index in xrange(len(self.feature)) if self.feature[index] == 1])
 
     def _random_projection(self):
