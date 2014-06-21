@@ -15,7 +15,7 @@ class Signuture(object):
         self.signuture = []
         self.planes = planes
         self.hash_type = hash_type
-        random.seed(0)
+        random.seed(1)
 
     def gen_siganuture(self):
         ''' generate signuture for original feature vector'''
@@ -33,15 +33,20 @@ class Signuture(object):
         a helper function for minhash
         generate single bit of signuture using ith hasher
         '''
-        return min([mmh3.hash(str(index), i) % self.sig_len \
-            for index in xrange(len(self.feature)) if self.feature[index] == 1])
+        try:
+            bit = min([mmh3.hash(str(index), i) % self.sig_len \
+                for index in xrange(len(self.feature)) \
+                    if self.feature[index] == 1])
+            return bit
+        except:
+            return self.sig_len
 
     def _random_projection(self):
         ''' Random projection for cosine similarity'''
         if self.planes == None:
             self._gen_random_planes()
-        self.signuture = [self._project(self.feature, self.planes[i]) \
-            for i in xrange(len(self.planes))]
+        self.signuture = [self._project(self.feature, plane) \
+            for plane in self.planes]
 
     @staticmethod
     def _project(vector, plane):
@@ -61,14 +66,14 @@ class Signuture(object):
         return dot
 
     def _gen_random_planes(self):
-        ''' Generate and stores random planes'''
+        ''' Generate and stores random planes '''
         self.planes = [self._gen_random_plane(len(self.feature)) \
             for _ in xrange(self.sig_len)]
 
     @staticmethod
     def _gen_random_plane(dim):
         ''' generate random hyperplane with dimension dim'''
-        return [(random.random() - 0.5) * 2 for _ in xrange(dim)]
+        return [random.gauss(0, 1) for _ in xrange(dim)]
 
 
 class Banding:
