@@ -1,80 +1,140 @@
 ''' This module defines classes for generating LSH Signuture'''
 import mmh3
-import random
+import math
+import numpy as np
+from abc import abstractmethod
+from numpy.random import uniform
+from numpy.linalg import norm
 
-class Signuture(object):
-    ''' 
-    Signuture represents the Signuture of an original feature vector
-    using either minhash (for boolean vector with Jaccard Similarity) 
-    or random projection (continuous vector with cosine similarity)
+
+
+class Lsh(object):
+    ''' LSH implements locality sensitive hashing algorithm 
+    that enables fast nearest neighbor search.
+
+    Attributes:
+        feat_dim: An integer indicating the dimension of feature vector
+        sig_dim: An integer indicating the length of signature vector
+        similarity_measure: An object indicating the similarity measure
     '''
 
-    def __init__(self, feat, sig_len, planes=None, hash_type='minhash'):
-        self.feature = feat
-        self.sig_len = sig_len
-        self.signuture = []
-        self.planes = planes
-        self.hash_type = hash_type
-        random.seed(1)
+    def __init__(self, feat_dim, sig_dim, similarity_measure):
+        self.feat_dim = feat_dim
+        self.sig_dim = sig_dim
+        self.similarity_measure = similarity_measure
+        self.hasher = self._init_hasher()
 
-    def gen_siganuture(self):
-        ''' generate signuture for original feature vector'''
-        if self.hash_type == 'minhash':
-            self._min_hash()
+    def _init_hasher(self):
+        '''initiate hasher function'''
+        if isinstance(self.similarity_measure, JaccardSimilarity):
+            return MinHasher(self.feat_dim)
         else:
-            self._random_projection()
+            return RandomProjectionHasher(self.feat_dim, self.sig_dim)
 
-    def _min_hash(self):
-        ''' Min hash for Jaccard Similarity'''
-        self.signuture = [self._gen_single_bit(i) for i in xrange(self.sig_len)]
+    def generate_signature(self, lsh_object):
+        '''generate signature for lsh_object'''
+        lsh_object.siganuture = [self.hasher.hash(lsh_object.feature, i) \
+            for i in xrange(self.sig_dim)]
 
-    def _gen_single_bit(self, i):
-        ''' 
-        a helper function for minhash
-        generate single bit of signuture using ith hasher
-        '''
-        try:
-            bit = min([mmh3.hash(str(index), i) % self.sig_len \
-                for index in xrange(len(self.feature)) \
-                    if self.feature[index] == 1])
-            return bit
-        except:
-            return self.sig_len
 
-    def _random_projection(self):
-        ''' Random projection for cosine similarity'''
-        if self.planes == None:
-            self._gen_random_planes()
-        self.signuture = [self._project(self.feature, plane) \
-            for plane in self.planes]
+class LshObject(object):
+    ''' Defines an LSH object and methods to generate its siganuture '''
 
-    @staticmethod
-    def _project(vector, plane):
-        ''' poject vector on plane, returns sign of projection '''
-        assert len(vector) == len(plane)
+    def __init__(self, feature):
+        self.feature = feature
+        self.siganuture = []
 
-        if Signuture._dot_product(vector, plane) >= 0:
+
+class Hasher(object):
+    '''Hasher is an abstract class which implements a family of hasher.
+
+    Attributes:
+        feat_dim: dimension of feature vector.
+    ''' 
+
+    def __init__(self, feat_dim):
+        self.feat_dim = feat_dim
+
+    @abstractmethod
+    def hash(self, feature, k):
+        '''generate hash in kth position of siganuture'''
+        pass
+
+class MinHasher(Hasher): 
+    '''MinHasher implements a family of hasher which generate siganuture 
+    for jaccard similarity measure'''
+
+    def hash(self, feature, k):
+        hash_values = [mmh3.hash(str(pos), k) \
+            for pos, val in enumerate(feature) if val == 1]
+
+        # feature is a zero vector return a value that can never be hashed to
+        if len(hash_values) == 0:
+            return float("inf")
+        else:
+            return min(hash_values)
+
+class RandomProjectionHasher(Hasher):
+    '''RandomProjectionHasher generates random hyperplanes and make
+    projections from features onto these planes to generate hash values.
+    It's used together with cosine similarity measure'''
+
+    def __init__(self, feat_dim, sig_dim):
+        super(RandomProjectionHasher, self).__init__(feat_dim)
+        self.sig_dim = sig_dim
+        self.planes = self._init_planes()
+        
+    def _init_planes(self):
+        '''generates random planes'''
+        return [uniform(-1, 1, self.feat_dim) for _ in xrange(self.sig_dim)]
+
+
+    def hash(self, feature, k):
+        dot = np.dot(feature, self.planes[k])
+        if dot > 0:
             return 1
-        return -1
+        return 0
+
+
+class CosineSimilarity(object):
+    '''CosineSimilarity implements the method 
+    to compute similarity between two feature vector'''
 
     @staticmethod
-    def _dot_product(vec1, vec2):
-        ''' compute dot product of two vectors'''
-        dot = 0.0
-        for x_val, y_val in zip(vec1, vec2):
-            dot += x_val * y_val
-        return dot
-
-    def _gen_random_planes(self):
-        ''' Generate and stores random planes '''
-        self.planes = [self._gen_random_plane(len(self.feature)) \
-            for _ in xrange(self.sig_len)]
+    def compute_similarity(vec1, vec2):
+        '''compute cosine similarity'''
+        vec_len1 = norm(vec1)
+        vec_len2 = norm(vec2)
+        if vec_len1 == 0 or vec_len2 == 0:
+            return 0
+        else:
+            return np.dot(vec1, vec2) / (norm(vec1) * norm(vec2))
 
     @staticmethod
-    def _gen_random_plane(dim):
-        ''' generate random hyperplane with dimension dim'''
-        return [random.gauss(0, 1) for _ in xrange(dim)]
+    def approximate_similarity(sig1, sig2):
+        '''
+        compute the approximated cosine similarity for two signatures
+        generated by applying RandomProjectionHasher
+        '''
+        return math.cos(math.pi * sum(np.bitwise_xor(sig1, sig2)) / len(sig1))
 
+class JaccardSimilarity(object):
+    '''JaccardSimilarity implements the method 
+    to Jaccard similarity between two feature vector'''
 
-class Banding:
-    pass
+    @staticmethod
+    def compute_similarity(vec1, vec2):
+        '''compute Jaccard similarity'''
+        union = sum(np.bitwise_or(vec1, vec2))
+        if union == 0:
+            return 0.0
+        else:
+            return 1.0 * sum(np.bitwise_and(vec1, vec2)) / union
+
+    @staticmethod
+    def approximate_similarity(sig1, sig2):
+        '''
+        compute the approximated Jaccard similarity for two signatures
+        generated by applying MinHasher
+        '''
+        return 1.0 * len([1 for x, y in zip(sig1, sig2) if x == y]) / len(sig1)
