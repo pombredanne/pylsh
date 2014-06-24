@@ -2,6 +2,8 @@
 
 #####dependencies
 1. mmh3
+2. numpy
+3. bitarray
 
 #####TODO:
 - figure out a better data representation to make it more compact and also make the framework more extendible
